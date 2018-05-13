@@ -1,0 +1,4 @@
+
+# Relevance to other DBs
+SQL is SQL is a bunch of dialects
+

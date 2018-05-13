@@ -1,0 +1,15 @@
+
+# Statistical functions
+
+
+
+## Regression
+
+## Anova
+
+## T-tests
+
+## Kolmogorov-Smirnoff tests
+
+
+## And more...

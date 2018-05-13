@@ -1,0 +1,9 @@
+
+# Aggregation functions
+
+
+## The usual suspects: `COUNT`, `AVG`, ``MIN`, `MAX`
+
+
+## Median, quantiles, deciles, and so on
+
