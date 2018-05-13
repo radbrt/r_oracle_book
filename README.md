@@ -1,3 +1,3 @@
-This is a minimal example of a book based on R Markdown and **bookdown** (https://github.com/rstudio/bookdown). Please see the page "[Get Started](https://bookdown.org/yihui/bookdown/get-started.html)" at https://bookdown.org/yihui/bookdown/ for how to compile this example.
+This is an R *bookdown* book, outlining some useful tricks working with R and Oracle databases.
 
-You can find the preview of this example at https://bookdown.org/yihui/bookdown-demo/
+Needless to say this is a work in progress.
