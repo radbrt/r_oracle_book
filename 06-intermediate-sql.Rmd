@@ -1,6 +1,22 @@
 
 # Intermediate SQL
+```{r dbdrv, include=FALSE, eval=TRUE}
 
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+```
 You now have a good knowledge of basic SQL, and you are able to create subsets, aggregations and new combinations of data. This is already enough to make good use of any database you have access to, allowing you leverage the database's data crunching abilities to extract results much more tailored to your needs than simply copying the entire table from Oracle to R.
 
 ## Create conditional statements with `CASE WHEN`
@@ -61,17 +77,27 @@ ORDER BY 2 desc
 There is a total of 6 contries that sold for mor than 100 000 pounds, with Australia closest to the cutoff with 137 000 in sales. Unfortunately, `HAVING` doesn't understand the column names we assign in `SELECT` (`sales` in this case), so we need to repeat the entire expression when filtering. `ORDER BY`, on the other hand, is perfectly happy sorting by either `sales` or simply the column number as shown here. 
 
 
-## Limiting your result with `FETCH FIRST`
-If you have a big table and you just want to limit the number of results returned from a query, there is an option besides using the `ROWNUM` pseudo-column. And even though rownum works great for many purposes, it fails if you want to see result 100-199. There is no good way to exclude row 1-99 from the output using rownum. A better, and more tidy alternative, is to use a special clause to limit the resultset. Reusing the code showing the biggest countries, we can select the 10 biggest countries.
+## More about limiting the result with `FETCH FIRST`
+We have already seen how to return only a given number of rows with the `FETCH FIRST` command. Some may be familiar with another way of limiting results, using the `ROWNUM` pseudo-column like this:
 
 ```{sql connection=con}
-SELECT country, SUM(quantity*unitPrice) AS sales FROM trx
-GROUP BY country
-ORDER BY sales desc
-FETCH FIRST 10 ROWS ONLY
+SELECT country, description FROM trx
+WHERE rownum < 10
 ```
 
-This limits the resultset in much the same way as the `ROWNUM` clause, but it is easier to parse visually because it is distinct from the where-statement, and it is possible to expand this clause in ways not possible with `ROWNUM`. Take the classical example of cycling through a paginated list of items. You have a large number of rows, ordered by some condition, and you want to show only 10 at a time, with a "next page" link at the bottom of the list. If we want to show rows 11-20 from the movie table, we can simply modify the query slightly.
+This works just fine in many situations, but has two drawbacks. For one, it doesn't work on aggregates. The following query fails:
+
+```{sql connection=con, eval=FALSE}
+SELECT country, COUNT(1) FROM trx
+GROUP BY country
+HAVING rownum < 10
+```
+
+`FETCH FIRST` on the other hand, works like a charm.
+
+`FETCH FIRST` can also be combined with an offset, letting you fetch, say, row 11-20 instead of row 1-10. This is not possible with `ROWNUM`, as the first row returned is always row one. Including `WHERE ROWNUM>10` in a query will return an empty resultset.
+
+Offsets can be handy in, for example, the classical example of cycling through a paginated list of items. You have a large number of rows, ordered by some condition, and you want to show only 10 at a time, with a "next page" link at the bottom of the list. If we want to show rows 11-20, we can simply modify the query slightly.
 
 ```{sql connection=con}
 SELECT country, SUM(quantity*unitPrice) AS sales FROM trx
