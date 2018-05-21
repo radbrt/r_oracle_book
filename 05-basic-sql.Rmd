@@ -89,6 +89,8 @@ GROUP BY country
 ORDER BY 2 DESC
 ```
 
+Note the final line, `ORDER BY 2 DESC`. This sorts the output data by the second column, in descending order. This way, the countries with the largest sales appear first. It is possible to order by multiple columns (we could say `ORDER BY 2 DESC, country`) to make sure any ties are sorted alphabetically by country. Passing column numbers instead of column nicknames is a nice shortcut, but we could just as well have written `ORDER BY units_sold DESC`. The `ORDER BY` clause is one of the few commands in Oracle that accepts the nicknames we create in the `SELECT` statement.
+
 This is indeed a nice overview, and properly sorted. Before we continue though, let's improve our understanding further with some visualizations.
 
 ```{r simpleviz}
