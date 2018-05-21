@@ -164,6 +164,15 @@ SELECT COUNT(*) FROM customer
 WHERE REGEXP_LIKE(email, '[a-zA-Z0-9_\.]+@[a-zA-Z0-9_\.]+\.[a-zA-Z]')
 ```
 
+We could also extract last names (as in: last word in the name) from the cast table, and see what last names are most popular in Hollywood.
+
+```{sql, connection=con}
+SELECT regexp_substr(name, '\w+$') AS last_name, COUNT(1) AS occurences FROM crew
+GROUP BY regexp_substr(name, '\w+$')
+ORDER BY 2 DESC
+```
+
+
 ### Dealing with dates and times
 
 ## What we are not going to cover

@@ -6,7 +6,7 @@ In order to download the data you need a Kaggle account, but once that is set up
 
 In order to load it into the SQL database, we will first load it into R as a regular dataframe and then write it to a table.
 
-```{r dbdrv, include=FALSE, eval=TRUE}
+```{r dbdrvx, include=FALSE, eval=TRUE}
 
 library(ROracle)
 drv <- dbDriver("Oracle")
