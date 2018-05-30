@@ -93,6 +93,8 @@ Note the final line, `ORDER BY 2 DESC`. This sorts the output data by the second
 
 This is indeed a nice overview, and properly sorted. Before we continue though, let's improve our understanding further with some visualizations.
 
+In order to visualize, we have to first load the data into an R data frame. We will show how to pass a query into a data frame using the ROracle library. This process consists of passing a query (and a database connection) into the function `dbSendQuery`. This, however, does not return the data. In order to return the data set, you have to run `fetch` on the result of `dbSendQuery`. It is this resulting data frame that we will be plotting, using `ggplot`.
+
 ```{r simpleviz}
 dfq <- dbSendQuery(con, "
   SELECT country, SUM(quantity*unitprice) AS sales_total FROM trx
