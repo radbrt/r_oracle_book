@@ -1,5 +1,5 @@
 
-# Loading our data
+# Loading our data {#loading-data}
 If you are using the VM, you will already have available some data to play around with. However, we are going to use a different dataset for most of our analysis. Kaggle hosts a dataset containing data from an ecommerce-site, which is both interesting and quite conductive to learning advanced SQL.
 
 In order to download the data you need a Kaggle account, but once that is set up, you can download the data from https://www.kaggle.com/carrie1/ecommerce-data/downloads/ecommerce-data.zip.

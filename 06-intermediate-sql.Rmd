@@ -172,8 +172,74 @@ GROUP BY regexp_substr(name, '\w+$')
 ORDER BY 2 DESC
 ```
 
+There are other regex functions in Oracle, that lets you replace text (`REGEXP_REPLACE`) and count the number of occurences of a pattern in a string (`REGEX_COUNT`).
 
-### Dealing with dates and times
+### Dealing with dates {#dates}
+
+There is a good chance that a table near you has a column that represents time in some sense. There is also a good chance that the column is stored as something other than a date. Sometimes this is reasonable, but a lot of the time, storing dates and times as actual dates and times can be very beneficial.
+
+We already touched on the concept of dates in chapter \@ref(loading-data), but we did not elaborate on it. What we did, was to instruct the database that the column `INVOICEDATE` should be interpreted as a date, and specify the date format in a separate argument. In our case, we were dealing with not just a date but with a timestamp containing the date in the format **YYYY-MM-DD** followed by a space followed by the time in the format of **HH24:MI:SS** - that is the hour (zulu-time, 24 hours), colon, minutes (00-59), colon, seconds (00-59). The entire line of code called the `TO_DATE` function, with the argument  is `TO_DATE(INVOICEDATE, 'YYYY-MM-DD HH24:MI:SS') AS INVOICEDATE`.
+
+Having a column properly defined as a date, you can start doing some neat stuff like subtracting two dates from each other, which returns the number of days in between. Try it yourself:
+
+```{sql, connection=con}
+SELECT TO_DATE('01-01-2017', 'DD-MM-YYYY') - TO_DATE('01-01-2016', 'DD-MM-YYYY') FROM DUAL
+```
+
+If you think the database must be of its rockers to suggest there was 366 days between january 1st 2016 and january 1 2017, remember that 2016 was a leap year. R has the same concepts, a similar way of parsing dates (which you also saw briefly in chapter \@ref(loading-data)), and is also in agreement that there were 366 days in between january 1st 2016 and january 1st 2017.
+
+```{r}
+strptime("01/01/2017", format = "%m/%d/%Y") - strptime("01/01/2016", format = "%m/%d/%Y")
+```
+
+Once your column is defined as a date, there are some other nice features built in that can be very useful. Dates can be converted to many other formats, such as week number, or day of week. Lets check our sales by day of week:
+
+```{sql, connection=con}
+SELECT TO_CHAR(invoicedate, 'DAY'), SUM(quantity) AS units_sold FROM trx
+GROUP BY TO_CHAR(invoicedate, 'DAY')
+ORDER BY 2 DESC
+```
+
+There is definetely something odd about this data - there were no sales on saturdays, but there were sales on sunday.
+
+Lets look at sales by week as well. But we don't want a 52-row output table to browse, so we'll do the aggregation in SQL and pass the result to R and ggplot.
+
+```{r}
+
+q <- dbSendQuery(con, "
+SELECT TO_CHAR(invoicedate, 'WW') AS WEEK, SUM(quantity) AS UNITS_SOLD FROM trx
+GROUP BY TO_CHAR(invoicedate, 'WW')
+ORDER BY 2 DESC
+")
+df <- fetch(q)
+
+library(ggplot2)
+library(dplyr)
+df %>% ggplot(aes(WEEK, UNITS_SOLD)) +
+  geom_bar(stat = 'identity') 
+
+```
+
+Ggplot needs to know that this data is already aggregated, and we specify this by the argument `stat='identity'` that we pass to `geom_bar`.
+
+Hopefully needless to say, R has similar capabilities in expressing dates as weeks and aggregating. As an example, lets try to make the same chart using R.
+
+```{r}
+q <- dbSendQuery(con, "
+SELECT invoicedate, quantity FROM trx
+")
+df <- fetch(q) %>% mutate(week = strftime(INVOICEDATE, format = "%V"))
+
+library(ggplot2)
+library(dplyr)
+df %>% ggplot(aes(week)) +
+  geom_bar(aes(weight = QUANTITY) )
+
+
+```
+
+As we hoped for, the charts look identical, and its up to you to decide which one to use. If the data is big enough, you probably want to do leave the aggregation to the database.
+
 
 ## What we are not going to cover
 
@@ -181,9 +247,66 @@ ORDER BY 2 DESC
 
 `PL/SQL` is Oracle's programming language extension to SQL. It lets you declare variables, run conditional statements and loops, in order to generate SQL statements on the fly.
 
-Since we are using R which has all these features, there are few arguments for learning PL/SQL too.
+Since we are using R which usually covers these use cases, there are few arguments for learning PL/SQL too.
 
 ### the `dbplyr` library
 
-If you prefer avoid SQL when possible, you should consider using a library called `dbplyr`. This is an interface that lets you write familiar R code, that is then run in the database as SQL. The authors have done a great job at optimizing the code, so that the resulting database queries are every bit as performant as you could hope for.
+If you prefer avoid SQL when possible, you should consider using a library called `dbplyr`. This is an interface that lets you write code that should be familiar to any `dplyr` user, that is then run in the database as SQL. The authors have done a great job at optimizing the code, so that the resulting database queries are every bit as performant as you could hope for. But, like many libraries, it has its limitations as well. To illustrate examples of when this works and when it doesn't, we will try to get a summary of sales by country like we did in chapter \@ref(simple-aggregates), and generate summaries by weekday like we did above.
 
+```{r}
+library(dbplyr)
+
+#define a r-object that references the database table
+trxtbl <- tbl(con, "TRX")
+
+# Run dplyr-code just like it was a regular data frame 
+trxtbl %>% 
+  group_by(COUNTRY) %>% 
+  summarize(total_sales = sum(QUANTITY*UNITPRICE)) %>% 
+  arrange(desc(total_sales)) %>% 
+  top_n(3)
+
+```
+
+But if we try to do the same with weekdays, we get a strange error-message.
+
+```{r dateerror, eval=FALSE}
+
+trxtbl %>% 
+  mutate(week = strftime(INVOICEDATE, format="%V"))
+  group_by(week) %>% 
+  summarize(total_sales = sum(QUANTITY*UNITPRICE)) %>% 
+  arrange(desc(total_sales)) %>% 
+  top_n(3)
+```
+>`Error in .oci.SendQuery(conn, statement, data = data, prefetch = prefetch, : ORA-00907: missing right parenthesis`
+
+It is easy to see what went wrong, by passing the result to the `show_query()` function. We can do this in the same workflow, by just piping to `show_query()`.
+
+```{r, eval=FALSE}
+trxtbl %>% 
+  mutate(week = strftime(INVOICEDATE, format="%V")) %>% 
+  group_by(week) %>% 
+  summarize(total_sales = sum(QUANTITY*UNITPRICE)) %>% 
+  arrange(desc(total_sales)) %>% 
+  top_n(3) %>% 
+  show_query()
+  
+```
+
+
+>`SELECT "week", "total_sales"`
+>`FROM (SELECT "week", "total_sales", rank() OVER (ORDER BY "total_sales" DESC) AS "zzz12"`
+>`FROM (SELECT *`
+>`FROM (SELECT "week", SUM("QUANTITY" * "UNITPRICE") AS "total_sales"`
+>`FROM (SELECT "INVOICENO", "STOCKCODE", "DESCRIPTION", "QUANTITY", "INVOICEDATE", "UNITPRICE", "CUSTOMERID", "COUNTRY", STRFTIME("INVOICEDATE", '%V' AS "format") AS"week"`
+>`FROM ("TRX") ) "egcdmyvzjl"`
+>`GROUP BY "week") "jtxdupatwa"`
+>`ORDER BY "total_sales" DESC) "tguwvduhof") "fgqwxodxti"`
+>`WHERE ("zzz12" <= 3.0)`
+
+
+
+`dbplyr` has generated quite a large query for us, but it passed the r-specific `strftime` function into the SQL statement, which is what caused the error. SQL and R-code don't mix.
+
+The generated code ran at a cost of 3147 once the `strftime` function had been replaced with `TO_CHAR()`. Writing the same statement myself somewhat differently resulted in a cost of 3020 - a neglible difference. It is also interesting to see how `dbplyr` utilizes windowing functions, which is a fairly new addition to the SQL language. We will learn more about windowing functions in \@ref(windows)

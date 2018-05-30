@@ -40,7 +40,7 @@ Indeed, we see this customer returning on three different dates between July and
 
 You might have noticed that we have no information about the denomination for either the quantity or price, which is actually surprisingly common in real life. We suspect that the dataset comes from the US, which would make dollar the right currency. Amount-wise this makes sense, but it might be british pounds, or a combination. All the quantities are whole numbers, and the product names suggests that these are separate items, as opposed to kilos, meters, liters or some other more esoteric continuous measurement.
 
-### Aggregating your results
+### Aggregating your results {#simple-aggregates}
 
 First off, let's check the total sales at this shop.
 
