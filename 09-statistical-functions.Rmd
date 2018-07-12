@@ -1,6 +1,30 @@
 
 # Statistical functions
 
+Usually, statistics is best suited to do in R. But if your data is large enough and your needs aren't too advanced, Oracle packs an impressive array of statistical functions and can often execute them blazingly fast.
+
+## Covariance: Revisitng quantity vs unitprice
+
+In \@ref(first-values), we looked at the average quantity sold of the cheapest products, compared to the average quantity sold of the most expensive product in each country - the theory being that cheap products sell in higher quantities. Not the most provocative theory, but good enough for a teaching exercise.
+
+This question is probably better answered with some more advanced (and standard) statistical functions. We can start by taking the simple covariance between unitprice and quantity.
+
+```{sql, connection=con}
+SELECT country, COVAR_POP(unitprice, quantity) as price_quantity_covar FROM trx
+GROUP BY country
+ORDER BY COUNT(1) DESC
+FETCH FIRST 10 ROWS ONLY
+```
+
+To no surprise, we find a negative correlation between unit price and quantity sold in every country we cared to list.
+
+There are two covariance functions: `COVAR_POP` (which we used here), and `COVAR_SAMP`, which are asymptotically equal with high sample size.
+
+Covariance in small samples need to adjust for the one degree of freedom used, by removing 1 from $n$:
+
+$$\frac{\sum(expr1 * expr2) - \sum expr1 * \sum expr2}{n * (n-1)}$$
+
+For `COVAR_POP`, the denominator is $n^2$ instead of $n*(n-1)$.
 
 
 ## Regression

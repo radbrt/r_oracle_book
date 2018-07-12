@@ -1,5 +1,5 @@
 
-# Aggregation functions
+# Aggregation functions {aggregation-functions}
 
 Since we have already dived deep into aggregations in \@ref(intermediate-sql), this chapter will expand on aggregations by going through some of the other aggregation functions found in Oracle.
 
@@ -29,7 +29,7 @@ The `PERCENTILE_DISC` function which returns the percentiles, is somewhat more i
 
 A second, smaller cause for confusion is the function name, `PERCENTILE_DISC`. For our purposes, this is the normal percentile function we want to use. But there is a different percentile function, `PERCENTILE_CONT`, which tries to linearly interpolate the values and return the given percentile from that interpolated function.
 
-## First values
+## First values {first-values}
 
 Another interesting thing to grab, is the first or last value of some variable, ordered by some other variable. To illustrate this, ask yourself: Are customers likely to buy larger quantities of products with a low unit price, or a high unit price?
 
