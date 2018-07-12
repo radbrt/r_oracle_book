@@ -61,8 +61,6 @@ Instead of days, keywords like `'MONTH'` and `'YEAR'` can also be used.
 Many of the usual aggregate functions can be used as analutical functions, but notably median and quantiles are missing. These must be computed in R instead.
 
 
-## Text aggregation
-
 
 
 ## Models
