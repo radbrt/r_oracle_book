@@ -1,0 +1,220 @@
+--- 
+title: "Data analysis with R and Oracle"
+author: "Henning Holgersen"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: bookdown::gitbook
+documentclass: book
+bibliography: [book.bib, packages.bib]
+biblio-style: apalike
+link-citations: yes
+description: "Oracle is one of the most common database systems used in the business world. For analysts, an Oracle database is often their data souce. Being able to effectively query databases, and leave to the database what the database is best at and R what R is best at, can speed up analysis and reduce computational overhead."
+---
+
+# Who is this book for?
+
+Placeholder
+
+
+## What will the book cover?
+## What does the book not cover?
+
+<!--chapter:end:index.Rmd-->
+
+
+# Introduction {#intro}
+
+Placeholder
+
+
+## What analysts need
+
+<!--chapter:end:01-intro.Rmd-->
+
+
+# System setup
+
+Placeholder
+
+
+## Follow along with the BigData Lite VM
+## A production environment
+### Installing drivers
+### Installing Rstudio
+### Installing SQL Workbench
+## Connecting to a database from R
+
+<!--chapter:end:02-system-setup.Rmd-->
+
+
+# A relational state of mind
+
+Placeholder
+
+
+## An illustrated example with movie-data
+
+<!--chapter:end:03-relational-mind.Rmd-->
+
+
+# Loading our data {#loading-data}
+
+Placeholder
+
+
+
+<!--chapter:end:04-loading-data.Rmd-->
+
+
+# Basic SQL
+
+Placeholder
+
+
+## `SELECT` `FROM` `WHERE`? Starting our exploration
+### A quick glance at our data 
+### Aggregating your results {#simple-aggregates}
+## More ways to `JOIN` tables
+## A few common gotchas
+### Missing values
+### Execution order
+### ANSI and the dialects
+
+<!--chapter:end:05-basic-sql.Rmd-->
+
+
+# Intermediate SQL {intermediate-sql}
+
+Placeholder
+
+
+## Create conditional statements with `CASE WHEN`
+## Filter on aggregates with `HAVING`
+## More about limiting the result with `FETCH FIRST`
+## Simple convenience functions
+### The `decode` function
+### upper / lower
+### substring
+### Regular expressions
+### Dealing with dates {#dates}
+## What we are not going to cover
+### PL/SQL
+### the `dbplyr` library
+
+<!--chapter:end:06-intermediate-sql.Rmd-->
+
+
+# Aggregation functions {aggregation-functions}
+
+Placeholder
+
+
+## Median and quantiles
+## First values {first-values}
+## Aggregating text
+
+<!--chapter:end:07-aggregation-functions.Rmd-->
+
+
+# Analytical functions
+
+Placeholder
+
+
+## Over the partitions and far away {#windows}
+## Models
+
+<!--chapter:end:08-analytical-functions.Rmd-->
+
+
+# Statistical functions
+
+Placeholder
+
+
+## Covariance: Revisitng quantity vs unitprice
+## Regression
+## T-tests
+## Kolmogorov-Smirnoff tests
+## And more...
+
+<!--chapter:end:09-statistical-functions.Rmd-->
+
+
+# Row pattern matching
+
+So far, we have mostly been doing things that are equally possible to do in R, and hence the reason for doing it in SQL instead of R is probably performance-related.
+
+Row pattern matching is something quite different, to which there currently isn't any comparable functionality in any R libraries. That is bound to change sooner or later, but for the time being, Oracle has a big selling point in being able to do a type of processing that is both novel, useful and difficult to implement from scratch.
+
+Row pattern matching is, basically, a `WHERE`-statement on steroids. Instead of selecting individual rows, you can select whole sets of rows, if they, as a group satisfy the criteria you have written. The canonical example is stocks, where you may not be interested in selecting the days where the stock is above, say, 20, but you really want to find periods where the price was increasing. With row pattern matching you can do that - define what an increase means, and then say you want all rows that are part of, f.ex., periods of five or more consecutive days of price increases.
+
+In addition to the amped-up WHERE-clause, pattern matching lets you calculate new columns, called `MEASURES`, from the patterns that you define. Things like the difference between the start- and end-price in the aforementioned 5-or-more days of stock price increases.
+
+But although the stocks make a good and relatable intro to what pattern-matching can do, it is probably more powerful in other areas, with more feature-rich data. With that said, lets do a simple stock-price example.
+
+```{sql, connection=tickercon}
+
+SHOW TABLES
+
+```
+
+
+
+<!--chapter:end:10-pattern-matching.Rmd-->
+
+
+# Inserting and updating data
+
+
+
+## Committing changes to a database
+
+## Truncate, don't drop
+
+<!--chapter:end:11-inserting-updating.Rmd-->
+
+
+# Performance and integrity
+
+
+## Indexes
+
+## constraints
+
+## Optimizing your queries
+### Inline views
+### Filter First
+### Take advantage of partitions
+### Explain plans
+### Leave some things for R
+
+<!--chapter:end:12-performance-integrity.Rmd-->
+
+# Shiny and Oracle
+Basically just a question of performance.
+
+
+
+<!--chapter:end:13-shiny-oracle.Rmd-->
+
+
+# Relevance to other DBs
+SQL is SQL is a bunch of dialects
+
+
+<!--chapter:end:14-relevance-other-db.Rmd-->
+
+# Big Data Databases
+
+## What is hive, and how does it compare
+
+
+<!--chapter:end:15-bigdata-db.Rmd-->
+
+`r if (knitr:::is_html_output()) '
+# References {-}
+'`
+
+<!--chapter:end:99-references.Rmd-->
+

@@ -1,5 +1,67 @@
 
 # Row pattern matching
 
+So far, we have mostly been doing things that are equally possible to do in R, and hence the reason for doing it in SQL instead of R is probably performance-related.
+
+Row pattern matching is something quite different, to which there currently isn't any comparable functionality in any R libraries. That is bound to change sooner or later, but for the time being, Oracle has a big selling point in being able to do a type of processing that is both novel, useful and difficult to implement from scratch.
+
+Row pattern matching is, basically, a `WHERE`-statement on steroids. Instead of selecting individual rows, you can select whole sets of rows, if they, as a group satisfy the criteria you have written. The canonical example is stocks, where you may not be interested in selecting the days where the stock is above, say, 20, but you really want to find periods where the price was increasing. With row pattern matching you can do that - define what an increase means, and then say you want all rows that are part of, f.ex., periods of five or more consecutive days of price increases.
+
+In addition to the amped-up WHERE-clause, pattern matching lets you calculate new columns, called `MEASURES`, from the patterns that you define. Things like the difference between the start- and end-price in the aforementioned 5-or-more days of stock price increases.
+
+Also, the pattern matching can do aggregations, leaving you with only one row summing up each pattern found.
+
+But although the stocks make a good and relatable intro to what pattern-matching can do, it is probably more powerful in other areas, with more feature-rich data. With that said, lets do a simple stock-price example where we select periods of stock price increases, however long or short.
+
+```{sql, connection=tickercon}
+
+SELECT * FROM ticker
+MATCH_RECOGNIZE(
+PARTITION BY symbol
+ORDER BY tstamp
+ALL ROWS PER MATCH
+PATTERN ( up+ )
+DEFINE up AS PREV(price)<price
+)
+
+```
+
+Although the query was short, there is a lot of new syntax here, starting with the `MATCH_RECOGNIZE` command that encompases the whole circus. Inside the match_recognize command, we start off by partitioning by symbol, which just like with the `OVER` clause says that we want to analyze patterns in different stocks in isolation. Secondly, we order by `TSTAMP`, which is the time column and denotes in which order things happened (the default ordering, ascending) usually agrees with how we want to analyze pattern in time.
+
+Now, for the really new stuff, which is probably easier to understand if we start with the last line.
+
+`DEFINE` is where we define the basic building blocks of what we want to match. We say that a row can be classified as "UP" if the stock price is higher that day than it was on the previous day. This is where the ORDER BY statement becomes important - without it, the previous row might not be the previous day, and our results wouldn't make much sense.
+
+In the `PATTERN` statement, we use the definition(s) we create in the DEFINE statement to specify what combinations of rows we are looking for. This step uses a lightweight version of regex to let us specify the patters, and the `+`-sign means the same here as in regex: One or more occurance.
+
+Finally, `ALL ROWS PER MATCH` is an explicit way of telling Oracle not to aggregate the results. In this query, we use match_recognize simply as a filter.
+
+To summarize, we use the `DEFINE` statement to definitions/labels/classifications of rows, with the help of functions such as `PREV` (previous row), `NEXT`, and some other methods that we will return to. We use these labels in the `PATTERN` statement, where we specify which combinations of these rows we are looking for, and finally we specify that we don't want to aggregate the results.
+
+The output of this, however, isn't easy to make sense of. The first four rows shows that the price increases from 17 to 25, but if we read the code carefully we see that 17 must already be an increase from the day before - otherwise it wouldn't have satisfied the `UP` definition. But we don't see what it increased from.
+
+Then, it drops from 25 to 15, and skips a day. Presumably, it found the pattern multiple times in the same stock, right next to each other. But we have a hard time reading this from the output, so let's add some more to the query.
+
+Firstly, we want to add the day the pattern starts. To do this we must add a definition to the pattern, but since we don't need this first row to satisfy any conditions other than coming before the first `UP`, we don't actually have to define it. If that sounds strange, you'll understand when you see it.
+
+Secondly, we want to see when one pattern ends and another starts. We can do this by adding a computed variable, called a `MEASURE` and a function called `MATCH_NUMBER()` that specifically enumerates what occurance of the pattern the row is part of.
+
+Additionally, since we now will have two different definitions as part of our pattern, we want to see what each row is classified as. This too we can do in the `MEASURE` clause, with the special function `CLASSIFIER()` which returns the name of the definition that triggered.
+
+```{sql, connection=tickercon}
+SELECT * FROM ticker
+MATCH_RECOGNIZE(
+PARTITION BY symbol
+ORDER BY tstamp
+MEASURES MATCH_NUMBER() AS match_num,
+        CLASSIFIER() as clf
+ALL ROWS PER MATCH
+PATTERN ( strt up+ )
+DEFINE up AS PREV(price)<price
+)
+```
+
+This helps immensly with readability. We can see that the start (nicknamed `strt` in the code) of the pattern is the 31st of march 2011, when the price is 12, before it increases to 17 which was the first observation we saw in the previous query. Also, we get a confirmation that the drop we saw when the price was 25, was the end of the first occurance of the pattern and the start of the second occurance. When we see a new ticker symbol, the match number counter resets.
+
 
 
