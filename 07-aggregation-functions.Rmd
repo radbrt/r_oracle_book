@@ -1,6 +1,24 @@
 
 # Aggregation functions {aggregation-functions}
 
+```{r, include=FALSE, cache=FALSE}
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+```
+
 Since we have already dived deep into aggregations in \@ref(intermediate-sql), this chapter will expand on aggregations by going through some of the other aggregation functions found in Oracle.
 
 ## Median and quantiles

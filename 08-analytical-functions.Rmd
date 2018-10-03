@@ -3,7 +3,7 @@
 
 ## Over the partitions and far away {#windows}
 
-Even without aggregating, it is possible to create an average of a column. A new, computed column can be added to an existing selection by using the **analytical** average function. This is in fact the same function as the aggregate function we covered in last chapter, but with an added keyword to distinguish it from the aggregate function and add a host of new features.
+Even without aggregating, it is possible to create an average of a column. A new, computed column can be added to an existing selection by using the **analytical** average function. This is in fact the same function as the aggregate function we covered in last chapter, but with an added keyword to distinguish it from the aggregate function and add a host of new features. 
 
 Let's start with the simplest example possible, taking the average of stock prices.
 

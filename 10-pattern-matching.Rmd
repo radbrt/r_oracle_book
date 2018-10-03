@@ -1,6 +1,26 @@
 
 # Row pattern matching
 
+```{r, include=FALSE, cache=FALSE}
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+
+options(scipen=1, digits=2)
+```
+
 So far, we have mostly been doing things that are equally possible to do in R, and hence the reason for doing it in SQL instead of R is probably performance-related.
 
 Row pattern matching is something quite different, to which there currently isn't any comparable functionality in any R libraries. That is bound to change sooner or later, but for the time being, Oracle has a big selling point in being able to do a type of processing that is both novel, useful and difficult to implement from scratch.
@@ -11,7 +31,9 @@ In addition to the amped-up WHERE-clause, pattern matching lets you calculate ne
 
 Also, the pattern matching can do aggregations, leaving you with only one row summing up each pattern found.
 
-But although the stocks make a good and relatable intro to what pattern-matching can do, it is probably more powerful in other areas, with more feature-rich data. With that said, lets do a simple stock-price example where we select periods of stock price increases, however long or short.
+## A simple(ish) example
+
+Although the stocks make a good and relatable intro to what pattern-matching can do, it is probably more powerful in other areas, with more feature-rich data. Nevertheless, we will start by doing a simple stock-price example where we select periods of stock price increases, however long or short.
 
 ```{sql, connection=tickercon}
 
@@ -63,5 +85,163 @@ DEFINE up AS PREV(price)<price
 
 This helps immensly with readability. We can see that the start (nicknamed `strt` in the code) of the pattern is the 31st of march 2011, when the price is 12, before it increases to 17 which was the first observation we saw in the previous query. Also, we get a confirmation that the drop we saw when the price was 25, was the end of the first occurance of the pattern and the start of the second occurance. When we see a new ticker symbol, the match number counter resets.
 
+## A more involved example
+
+In order to really show the power of pattern matching, we have to import some more data. The New York City public payroll data is both public, rich, and has a panel-data structure that allows us to study changes over time. As of this writing, you can find the data at https://data.cityofnewyork.us/City-Government/Citywide-Payroll-Data-Fiscal-Year-/k397-673e.
+
+### Importing and cleaning
+
+You can download the dataset as CSV, and use the SQL Developer import wizard to create a table for it. If this was a dataset we were expecting to add more data to regularly, we would have set up a proper import script, probably in R, which would make the process automatic and reproducible. But in this case, just right-click on the tables-folder in the left sidebar, and choose import data. The wizard will guide you through the rest.
+
+After the data is imported, we want to do a little bit of data analysis to find out what we are dealing with. We can already see there are a few different ways to measure pay (the `PAY BASIS` column), which we might have to deal with in order to compare pay. But more importantly, since we want to analyze the carreer development of employees, we need to make sure that we have some sort of way of uniquely identifying each employee.
+
+But first, as a matter of good practice, let's add an anonymous ID for each person so that we don't have to use full names everywhere.
+
+```{sql, connection=con}
+ALTER TABLE nycpay
+ADD pers_id AS ora_hash(firstname||initial||lastname);
+```
+
+It is easier to have *one* column for identifying a person, and if you have worked with personal data before, you will hopefully appreciate working with data that isn't directly personally identifiable (PII). Since the dataset is public this is in principle an empty gesture, but removing PII is nevertheless valuable as a general practice.
+
+Back to uniquely identifying one person. Names are of course not unique, but we also have another challenge: One person may have more than one job with the city. This is a real challenge, because the data won't be unique by person and year - and this is what we want to track. How does each person fare.
+
+In practice we have two choices: Aggregate the data so that it is unique per person per year, or simply remove persons who have had multiple jobs. First, let's check how many people actually have multiple jobs:
+
+```{sql, connection=con}
+SELECT COUNT(1), COUNT(DISTINCT pers_id), SUM(occ) FROM (
+SELECT year, pers_id, COUNT(1) AS occ FROM nycpay
+GROUP BY year, pers_id
+HAVING count(1)>1)
+```
+
+We can see that out of 2.7 million rows, over 1 million belongs to people who have had more than one job in one year. And that there are 175 675 people who have had more than one job. If our goal was to conduct a thorough review of the city's pay data, we would have to choose to aggregate the data in some way in order to construct a dataset that contained every person and a meaningful unique identifier.
+
+Further exploration shows that a large number of people are election workers, which we might not find all that interesting to analyze in a career perspective. We use the chance to create a second table without the names, without the people causing the duplicates, and with some other data tidying thrown in.
+
+```{sql, connection=con}
+CREATE TABLE simplepay AS (
+  SELECT year, 
+  pers_id,
+  ltrim(rtrim(upper(agency))) AS agency, 
+  TO_DATE(job_start, 'MM/DD/YYYY') AS job_start,
+  LTRIM(RTRIM(job_location)) AS job_location,
+  LTRIM(RTRIM(job_title)) AS job_title,
+  LTRIM(RTRIM(leave_status)) AS leave_status,
+  base_salary,
+  LTRIM(RTRIM(pay_basis)) AS pay_basis,
+  regular_hours,
+  regular_gross_pay,
+  ot_hours,
+  total_ot_paid,
+  total_other_pay
+  FROM nycpay
+  WHERE 
+  ltrim(rtrim(upper(job_title))) != 'ELECTION WORKER' AND
+  pers_id NOT IN(
+    SELECT DISTINCT pers_id FROM nycpay
+    WHERE ltrim(rtrim(upper(job_title))) != 'ELECTION WORKER'
+    GROUP BY year, pers_id
+    HAVING COUNT(1)>1
+  )
+)
+```
+
+This leaves us with only about 250 000 records (people) per year, but this is hopefully people with fairly regular employment contracts for whom we can do meaningful analysis.
+
+Before we go any further, let's check a column that looks promising: Regular gross pay. This seems to always have a value, which might make it a good indicator of what a person actually makes (some of the other pay-related columns have 0-values, which is not a likely wage level.
+
+We can use the `WIDTH_BUCKET` function to create bins, and count the number of people in the respective wage brackets. We create 20 bins between $0 and $200,000, which leaves us with neat $10,000 increments. Any values outside the $0-$200,000 interval will be grouped in "overflow" buckets at the low and high end.
+
+```{sql, connection=con}
+SELECT WIDTH_BUCKET(BASE_SALARY, 0, 200000, 20) AS pay,
+MIN(BASE_SALARY) AS from_pay,
+MAX(BASE_SALARY) AS to_pay,
+COUNT(1) AS ant
+FROM simplepay
+GROUP BY WIDTH_BUCKET(BASE_SALARY, 0, 200000, 20)
+ORDER BY 1
+```
+
+There are no negative values, but a lot of employees with less than $10,000 in base pay. A quick look at the job titles for these low-paying jobs may reveal something about what type of jobs this is.
+
+```{sql, connection=con}
+SELECT job_title, COUNT(1) AS num_employees FROM simplepay
+WHERE base_salary<10000
+GROUP BY job_title
+ORDER BY 2 DESC
+FETCH FIRST 20 ROWS ONLY
+```
+
+The largest group is job traning participants, but a large and diverse group of school aides dominates the list. Many of these roles can be argued have an element of volunteering or civil engagement to them - pay might not be the main reason these people are doing the job.
+
+The job training participants are a good testcase: Let's look at how they fared. Did any of them end up with a job in the city?
+
+```{sql, connection=con}
+SELECT * FROM (
+  SELECT year, pers_id, agency, job_title, job_start, base_salary, pay_basis, leave_status FROM simplepay
+)
+MATCH_RECOGNIZE(
+PARTITION BY pers_id
+ORDER BY year
+MEASURES MONTHS_BETWEEN(FIRST(fulljob.job_start), training.job_start) AS time_to_job,
+COUNT(fulljob.*) AS fulljob_years
+ALL ROWS PER MATCH
+PATTERN ( ^ training fulljob+ )
+DEFINE 
+training AS job_title='JOB TRAINING PARTICIPANT',
+fulljob AS job_title!='JOB TRAINING PARTICIPANT'
+)
+
+```
+
+Here, we have selected people who start out as job training participants, and who (the next time we see them) are regular employees (well, not job training participants anyway). We also measure the number of months from they start job training to they start a paid job, and count the number of rows of regular employment.
+
+From here, we can continue our analysis by counting the number of people this is, compare it to the number of people who have been in job training programmes, and look at the time between the job training programme and their job start. A practical way to do this is by removing the `ALL ROWS PER MATCH` clause, which will leave us with one row per person.
+
+```{sql, connection=con}
+SELECT * FROM (
+  SELECT year, pers_id, agency, job_title, job_start, base_salary, pay_basis, leave_status FROM simplepay
+)
+MATCH_RECOGNIZE(
+PARTITION BY pers_id
+ORDER BY year
+MEASURES MONTHS_BETWEEN(FIRST(fulljob.job_start), FIRST(training.job_start)) AS time_to_job,
+COUNT(fulljob.*) AS fulljob_years
+PATTERN ( ^ training+ fulljob+ )
+DEFINE 
+training AS job_title='JOB TRAINING PARTICIPANT',
+fulljob AS job_title!='JOB TRAINING PARTICIPANT'
+)
+
+```
+
+Just by deleting a line, we have an aggregate, with the partition variable (`PERS_ID`), and the `MEASURES` we defined. This is a great start to take into R for further analysis. We have also changed the query slightly, opening up for multiple years of job training (the `training+` argument), and changed our measure to make sure we get moths between the start date of the first year in job training and the start date of the first job.
+
+```{r}
+
+q <- dbSendQuery(con, "
+SELECT * FROM (
+  SELECT year, pers_id, agency, job_title, job_start, base_salary, pay_basis, leave_status FROM simplepay
+)
+MATCH_RECOGNIZE(
+PARTITION BY pers_id
+ORDER BY year
+MEASURES MONTHS_BETWEEN(FIRST(fulljob.job_start), FIRST(training.job_start)) AS time_to_job,
+COUNT(fulljob.*) AS fulljob_years
+PATTERN ( ^ training+ fulljob+ )
+DEFINE 
+training AS job_title='JOB TRAINING PARTICIPANT',
+fulljob AS job_title!='JOB TRAINING PARTICIPANT'
+)
+")
+df <- fetch(q)
+
+library(ggplot2)
+library(dplyr)
+df %>% ggplot(aes(TIME_TO_JOB)) +
+  geom_histogram() 
+
+```
 
 
