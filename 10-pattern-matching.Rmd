@@ -97,7 +97,7 @@ After the data is imported, we want to do a little bit of data analysis to find 
 
 But first, as a matter of good practice, let's add an anonymous ID for each person so that we don't have to use full names everywhere.
 
-```{sql, connection=con}
+```{sql, connection=con, eval=FALSE}
 ALTER TABLE nycpay
 ADD pers_id AS ora_hash(firstname||initial||lastname);
 ```
@@ -119,7 +119,7 @@ We can see that out of 2.7 million rows, over 1 million belongs to people who ha
 
 Further exploration shows that a large number of people are election workers, which we might not find all that interesting to analyze in a career perspective. We use the chance to create a second table without the names, without the people causing the duplicates, and with some other data tidying thrown in.
 
-```{sql, connection=con}
+```{sql, connection=con, eval=FALSE}
 CREATE TABLE simplepay AS (
   SELECT year, 
   pers_id,
