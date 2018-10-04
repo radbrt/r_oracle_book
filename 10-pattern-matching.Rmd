@@ -245,3 +245,9 @@ df %>% ggplot(aes(TIME_TO_JOB)) +
 ```
 
 
+A large portion of the people that get a job in the city after job training, seems to be keeping the job they had in job training, but transition to a normal position. For the group of people who didn't get a job straight from their job training, the curve looks roughly linear. The 5 years of data we have corresponds to 60 months, so the non-neglible number of people getting a job close to 100 months is probably due job tranings that started long before 2014 when our data set starts. The long tail of both negative and positive values are most likely a result of data entry mistakes. This is real world data, and there will be real-world errors.
+
+
+
+
+
