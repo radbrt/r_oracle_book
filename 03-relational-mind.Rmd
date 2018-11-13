@@ -35,5 +35,3 @@ The three lines going from `movie_crew` converging to a single arrow pointing to
 When reading and analyzing data, so-called "denormalized" data might be more useful. Denormalization can easily be achieved by joining the data tables (more on this in chapter 6).
 
 ![Denormalized data](images/denormalized_data.png)
-
-

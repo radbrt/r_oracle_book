@@ -1,9 +1,13 @@
 
 # System setup
 
-## Follow along with the BigData Lite VM
+## Follow along with the BigData Lite VM or XE18 on Docker
 
-All examples in this book are run on the BigData Lite developer VM. This is a free virtual machine you can download from Oracle, and contains both an Oracle 12c installation, drivers, Rstudio Server, Hadoop, hive, and a whole host of other "Big data" related applications you can use to explore and learn.
+I started writing this book on the Oracle Bigdata Lite VM. This is a free virtual machine you can download from Oracle, and contains both an Oracle 12c installation, drivers, Rstudio Server, Hadoop, hive, and a whole host of other "Big data" related applications you can use to explore and learn.
+
+After a while, the Oracle 18c Express Edition (XE) came out, which is a free version of Oracle 18c which features all the same bells and whistles as the production grade database, but has restricted resources in terms of CPU, RAM and disk. For our use though, this database is perfect, and that's probably exactly what Oracle intended - let developers learn and experiment for free, while companies have to shell out for their products.
+
+I am running the XE version in a docker container, and linked it to an Rstudio container. This way, you can follow along with this book simply using two docker containers. Sadly, Oracle doesn't provide the XE container image directly, so you need to download the database install file from the Oracle website (requires a free account), and place it in a designated forlder for build to use. The same is true for the Oracle drivers which is required for the rstudio container. The build scripts for the containers can be found at https://github.com/radbrt/xestudio.
 
 
 ## A production environment
