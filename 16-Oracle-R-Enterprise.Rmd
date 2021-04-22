@@ -13,7 +13,7 @@ We will take a shortcut here, and use the Oracle BigData Lite virtual machine. T
 Installing and loading ORE is simple and unsurprising:
 
 ```{r}
-install.packages("ORE")
+#install.packages("ORE")
 library(ORE)
 
 ore.connect(user = "moviedemo", sid = "orcl", host = "localhost", 
@@ -78,18 +78,16 @@ In order for this to be a workable end-to-end example, we have to start with a l
 
 ```{r}
 # making iris visible, and DB-izing variable names
-iris <- iris
-names(iris) <- c("SEPAL_LENGTH", "SEPAL_WIDTH", "PETAL_LENGTH", "PETAL_WIDTH", "SPECIES_NAME")
+iris_to_db <- iris
+names(iris_to_db) <- c("SEPAL_LENGTH", "SEPAL_WIDTH", "PETAL_LENGTH", "PETAL_WIDTH", "SPECIES")
 
-# Not very far under the hood, there are a lot of matrixes, so far it appears that categorical 
-# response variables lead to strange errors. We recode species to numerical.
 
-species_list <- c('setosa'=1, 'versicolor'=2, 'virginica'=3)
-iris$SPECIES <- species_list[iris$SPECIES]
 
-iris_to_db <- iris[, c("SEPAL_LENGTH", "SEPAL_WIDTH", "PETAL_LENGTH", "PETAL_WIDTH", "SPECIES")]
+if (ore.exists("IRIS_RC")) {
+  ore.drop("IRIS_RC")
+}
 
-ore.create(iris_to_db, table="IRIS_R")
+ore.create(iris_to_db, table="IRIS_RC")
 ```
 
 OK, so we have renamed some column names for convenience, and created a table `IRIS_R` in the DB. I might not have shown the `ore.create` function before, but it does what it suggest - it creates a table in the db. Other than that one command though, we are not seeing anything new so far. That is about to change.
@@ -97,7 +95,7 @@ OK, so we have renamed some column names for convenience, and created a table `I
 Our ultimate goal is to be able to call on a prediction model from Oracle, but in order to do that we need a place to store the model - a place Oracle can access. Oracle has created such an "object storage" for R, and we can save objects there through the `ore.save` command. Let's try creating the model we want and saving it.
 
 ```{r}
-iris_species_model <- ore.odmNB(SPECIES ~ SEPAL_WIDTH + PETAL_LENGTH + PETAL_WIDTH + SEPAL_LENGTH, IRIS_R)
+iris_species_model <- ore.odmNB(SPECIES ~ SEPAL_WIDTH + PETAL_LENGTH + PETAL_WIDTH + SEPAL_LENGTH, IRIS_RC)
 
 ore.save(iris_species_model, name='supervised_models', list='iris_species_model', overwrite = TRUE)
 
@@ -115,11 +113,11 @@ We haven't talked about the details of what we want yet - what exactly is the ou
 iris_species_predict <- function(dat, ds, obj) {
 
   ore.load(name=ds, list=obj)
-  mod <- get(obj) # unneeded? Just reference 'obj'
-  dat <- ore.frame(dat) # somewhat uncertain as to the necessity of this
+  mod <- get(obj) 
+  dat <- ore.frame(dat)
 
   prd <- predict(mod, dat,supplemental.cols="SPECIES")
-  ore.pull(prd) # might not be needed?
+  ore.pull(prd)
 }
 ```
 
@@ -145,15 +143,39 @@ To recap, we have:
 
 We have now done what we can in R, the next step is to bring this together from SQL.
 
-In SQL, we can call this script using the `rqTableEval` function. The input to this function is fairly involved, not to mention unintuitive. Let's start by calling the function:
+In SQL, we can call this script using the `rqTableEval` function. The input to this function is fairly involved, not to mention unintuitive. We ha
 
-```sql
+
+```{r, echo=FALSE, include=FALSE}
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+
+
+```
+
+
+```{sql connection=con}
+
 SELECT * FROM table(rqTableEval(
-  cursor(SELECT * FROM TEST_IRIS2),
-  cursor(SELECT 'species_nb_model_char' as "ds", 'species_nb_model_char' as "obj", 1 as "ore.connect" FROM dual),
+  cursor(SELECT * FROM IRIS_RC),
+  cursor(SELECT 'supervised_models' as "ds", 'iris_species_model' as "obj", 1 as "ore.connect" FROM dual),
   'SELECT 1 AS SETOSA_PROB, 1 AS VERSICOLOR_PROB, 1 AS VIRGINICA_PROB, CAST(''a'' AS VARCHAR(255)) AS SPECIES, CAST(''b'' AS VARCHAR(255)) AS PREDICTED_SPECIES FROM dual', 
   'iris_species_predict')
-  );
+  )
+WHERE species!=predicted_species
+
 ```
 
 We are constructing a table (as indicating by the `table` function that wraps it all), inside it is the `rqTableEval` function that takes three arguments (not the same three as the R function, mind you...). In order, the inputs are:

@@ -93,13 +93,36 @@ In order to really show the power of pattern matching, we have to import some mo
 
 You can download the dataset as CSV, and use the SQL Developer import wizard to create a table for it. If this was a dataset we were expecting to add more data to regularly, we would have set up a proper import script, probably in R, which would make the process automatic and reproducible. But in this case, just right-click on the tables-folder in the left sidebar, and choose import data. The wizard will guide you through the rest.
 
+```{r write_nycpay, eval=FALSE}
+library(dplyr)
+
+
+df <- read.csv('~/citywide-payroll-data-fiscal-year.csv', sep=",", 
+               col.names = c('YEAR', 'PAYROLL_NO', 'AGENCY_NAME', 'LAST_NAME', 'FIRST_NAME', 'MID_INIT', 
+                             'AGENCY_START_DATE', 'WORK_LOCATION_BOROUGH', 'TITLE_DESCRIPTION', 
+                             'LEAVE_STATUS_AS_OF_JUNE_30', 'BASE_SALARY', 'PAY_BASIS', 'REGULAR_HOURS', 
+                             'REGULAR_GROSS_PAID', 'OT_HOURS', 'TOTAL_OT_PAID', 'TOTAL_OTHER_PAY'), header = 1, stringsAsFactors = F)
+
+
+dbWriteTable(con, "NYCPAY", df)
+
+```
+
+
 After the data is imported, we want to do a little bit of data analysis to find out what we are dealing with. We can already see there are a few different ways to measure pay (the `PAY BASIS` column), which we might have to deal with in order to compare pay. But more importantly, since we want to analyze the carreer development of employees, we need to make sure that we have some sort of way of uniquely identifying each employee.
 
 But first, as a matter of good practice, let's add an anonymous ID for each person so that we don't have to use full names everywhere.
 
-```{sql, connection=con, eval=FALSE}
+```sql
 ALTER TABLE nycpay
-ADD pers_id AS ora_hash(firstname||initial||lastname);
+ADD PERS_ID VARCHAR(32) ;
+
+
+UPDATE nycpay
+SET PERS_ID = ORA_HASH(FIRST_NAME || MID_INIT || LAST_NAME);
+
+COMMIT;
+
 ```
 
 It is easier to have *one* column for identifying a person, and if you have worked with personal data before, you will hopefully appreciate working with data that isn't directly personally identifiable (PII). Since the dataset is public this is in principle an empty gesture, but removing PII is nevertheless valuable as a general practice.
@@ -112,39 +135,40 @@ In practice we have two choices: Aggregate the data so that it is unique per per
 SELECT COUNT(1), COUNT(DISTINCT pers_id), SUM(occ) FROM (
 SELECT year, pers_id, COUNT(1) AS occ FROM nycpay
 GROUP BY year, pers_id
-HAVING count(1)>1)
+HAVING count(1)>1
+)
 ```
 
-We can see that out of 2.7 million rows, over 1 million belongs to people who have had more than one job in one year. And that there are 175 675 people who have had more than one job. If our goal was to conduct a thorough review of the city's pay data, we would have to choose to aggregate the data in some way in order to construct a dataset that contained every person and a meaningful unique identifier.
+We can see that out of 3.9 million rows, over 1.8 million belongs to people who have had more than one job in one year. And that there are 259 922 people who have had more than one job. If our goal was to conduct a thorough review of the city's pay data, we would have to choose to aggregate the data in some way in order to construct a dataset that contained every person and a meaningful unique identifier.
 
 Further exploration shows that a large number of people are election workers, which we might not find all that interesting to analyze in a career perspective. We use the chance to create a second table without the names, without the people causing the duplicates, and with some other data tidying thrown in.
 
-```{sql, connection=con, eval=FALSE}
-CREATE TABLE simplepay AS (
+```sql
+CREATE TABLE SIMPLEPAY AS (
   SELECT year, 
   pers_id,
-  ltrim(rtrim(upper(agency))) AS agency, 
-  TO_DATE(job_start, 'MM/DD/YYYY') AS job_start,
-  LTRIM(RTRIM(job_location)) AS job_location,
-  LTRIM(RTRIM(job_title)) AS job_title,
-  LTRIM(RTRIM(leave_status)) AS leave_status,
+  TRIM(upper(AGENCY_NAME)) AS agency, 
+  TO_DATE(SUBSTR(AGENCY_START_DATE, 1, 10), 'YYYY-MM-DD') AS job_start,
+  TRIM(WORK_LOCATION_BOROUGH) AS job_location,
+  TRIM(TITLE_DESCRIPTION) AS job_title,
+  TRIM(LEAVE_STATUS_AS_OF_JUNE_30) AS leave_status,
   base_salary,
-  LTRIM(RTRIM(pay_basis)) AS pay_basis,
+  TRIM(pay_basis) AS pay_basis,
   regular_hours,
-  regular_gross_pay,
+  regular_gross_paid,
   ot_hours,
   total_ot_paid,
-  total_other_pay
+  TOTAL_OTHER_PAY
   FROM nycpay
   WHERE 
-  ltrim(rtrim(upper(job_title))) != 'ELECTION WORKER' AND
+  TRIM(upper(TITLE_DESCRIPTION)) != 'ELECTION WORKER' AND
   pers_id NOT IN(
     SELECT DISTINCT pers_id FROM nycpay
-    WHERE ltrim(rtrim(upper(job_title))) != 'ELECTION WORKER'
+    WHERE TRIM(upper(TITLE_DESCRIPTION)) = 'ELECTION WORKER'
     GROUP BY year, pers_id
     HAVING COUNT(1)>1
   )
-)
+);
 ```
 
 This leaves us with only about 250 000 records (people) per year, but this is hopefully people with fairly regular employment contracts for whom we can do meaningful analysis.
@@ -157,7 +181,7 @@ We can use the `WIDTH_BUCKET` function to create bins, and count the number of p
 SELECT WIDTH_BUCKET(BASE_SALARY, 0, 200000, 20) AS pay,
 MIN(BASE_SALARY) AS from_pay,
 MAX(BASE_SALARY) AS to_pay,
-COUNT(1) AS ant
+COUNT(1) AS employee_count
 FROM simplepay
 GROUP BY WIDTH_BUCKET(BASE_SALARY, 0, 200000, 20)
 ORDER BY 1

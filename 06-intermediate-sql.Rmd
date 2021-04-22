@@ -1,6 +1,6 @@
 
 # Intermediate SQL {intermediate-sql}
-```{r dbdrv, include=FALSE, eval=TRUE}
+```{r dbdrv_ch6, include=FALSE, eval=TRUE}
 
 library(ROracle)
 drv <- dbDriver("Oracle")
@@ -80,14 +80,14 @@ There is a total of 6 contries that sold for mor than 100 000 pounds, with Austr
 ## More about limiting the result with `FETCH FIRST`
 We have already seen how to return only a given number of rows with the `FETCH FIRST` command. Some may be familiar with another way of limiting results, using the `ROWNUM` pseudo-column like this:
 
-```{sql connection=con}
+```{sql  connection=con, rownum_sql}
 SELECT country, description FROM trx
 WHERE rownum < 10
 ```
 
-This works just fine in many situations, but has two drawbacks. For one, it doesn't work on aggregates. The following query fails:
+This works just fine in many situations, but has two drawbacks. For one, it doesn't work on aggregates. The following query would fail:
 
-```{sql connection=con, eval=FALSE}
+```sql
 SELECT country, COUNT(1) FROM trx
 GROUP BY country
 HAVING rownum < 10
@@ -99,7 +99,7 @@ HAVING rownum < 10
 
 Offsets can be handy in, for example, the classical example of cycling through a paginated list of items. You have a large number of rows, ordered by some condition, and you want to show only 10 at a time, with a "next page" link at the bottom of the list. If we want to show rows 11-20, we can simply modify the query slightly.
 
-```{sql connection=con}
+```{sql connection=con, country_groupby_sum_mult}
 SELECT country, SUM(quantity*unitPrice) AS sales FROM trx
 GROUP BY country
 ORDER BY sales desc
@@ -114,13 +114,13 @@ Sometimes, a `CASE WHEN` statement can be a little much. Enter the `decode` func
 
 Say, you want to quickly recode the `gender` from 'Male' and 'Female' to the german equivalents. This can be done as follows:
 
-```{sql, connection=con}
+```{sql connection=con, decode_first_example}
 SELECT DECODE(gender, 'Male', 'Männlich', 'Weiblich') FROM customer
 ```
 
 If we want to take care of potential missing/bad values in the data, we have to add an *unknown* category. If we don't, all values not equal to 'Male' will return with the *female* label. At the same time, lets use what we have learned about aggregations and unions to check that the result is correct (and learn something about the gender balance among our customers).
 
-```{sql, connection=con}
+```{sql connection=con, decode_function}
 SELECT DECODE(gender, 'Male', 'Männlich', 'Female', 'Weiblich', 'Nicht spezifiziert') AS geschlecht, COUNT(1) AS anzahl FROM (
 SELECT gender FROM customer
 UNION ALL
@@ -138,7 +138,7 @@ In many search and language processing applications it is vital to omit differen
 
 These functions are quite uncomplicated. The short example below converts email-addresses to both upper and lower case.
 
-```{sql, connection=con}
+```{sql connection=con, upper_lower}
 SELECT email, UPPER(email), LOWER(email) FROM customer
 FETCH FIRST 5 ROWS ONLY
 ```
@@ -148,7 +148,7 @@ Text strings are often very well-structured, and you may know exactly which char
 
 In the `customer` table, the `INCOME_LEVEL` column consists of a letter, followed by the actual income bracket. Suppose we want to return only the letter in our query, or only the income level, the `SUBSTR` function is fast and easy because we always know which position the letters and dollar amounts have.
 
-```{sql, connection=con}
+```{sql connection=con, substr_first5}
 SELECT gender, SUBSTR(income_level, 1,1), SUBSTR(income_level, 4) FROM customer
 FETCH FIRST 5 ROWS ONLY
 ```
@@ -159,14 +159,14 @@ Making sense of freeform text is always a challenge, and regular expressions (or
 
 In short, regex allows you to find patterns in text, such as extracting only digits from a field, validating email addresses, or select all capitalized words that occur in groups of two or more (suspected personal names).
 
-```{sql, connection=con}
+```{sql connection=con, regex_count}
 SELECT COUNT(*) FROM customer
 WHERE REGEXP_LIKE(email, '[a-zA-Z0-9_\.]+@[a-zA-Z0-9_\.]+\.[a-zA-Z]')
 ```
 
 We could also extract last names (as in: last word in the name) from the cast table, and see what last names are most popular in Hollywood.
 
-```{sql, connection=con}
+```{sql connection=con, regex_groupby}
 SELECT regexp_substr(name, '\w+$') AS last_name, COUNT(1) AS occurences FROM crew
 GROUP BY regexp_substr(name, '\w+$')
 ORDER BY 2 DESC
@@ -182,19 +182,19 @@ We already touched on the concept of dates in chapter \@ref(loading-data), but w
 
 Having a column properly defined as a date, you can start doing some neat stuff like subtracting two dates from each other, which returns the number of days in between. Try it yourself:
 
-```{sql, connection=con}
-SELECT TO_DATE('01-01-2017', 'DD-MM-YYYY') - TO_DATE('01-01-2016', 'DD-MM-YYYY') FROM DUAL
+```{sql connection=con, sql_date_diff}
+SELECT TO_DATE('01-01-2017', 'DD-MM-YYYY') - TO_DATE('01-01-2016', 'DD-MM-YYYY') AS time_diff FROM DUAL
 ```
 
 If you think the database must be of its rockers to suggest there was 366 days between january 1st 2016 and january 1 2017, remember that 2016 was a leap year. R has the same concepts, a similar way of parsing dates (which you also saw briefly in chapter \@ref(loading-data)), and is also in agreement that there were 366 days in between january 1st 2016 and january 1st 2017.
 
-```{r}
+```{r r_date_diff}
 strptime("01/01/2017", format = "%m/%d/%Y") - strptime("01/01/2016", format = "%m/%d/%Y")
 ```
 
 Once your column is defined as a date, there are some other nice features built in that can be very useful. Dates can be converted to many other formats, such as week number, or day of week. Lets check our sales by day of week:
 
-```{sql, connection=con}
+```{sql connection=con, convert_to_day}
 SELECT TO_CHAR(invoicedate, 'DAY'), SUM(quantity) AS units_sold FROM trx
 GROUP BY TO_CHAR(invoicedate, 'DAY')
 ORDER BY 2 DESC
@@ -204,7 +204,7 @@ There is definetely something odd about this data - there were no sales on satur
 
 Lets look at sales by week as well. But we don't want a 52-row output table to browse, so we'll do the aggregation in SQL and pass the result to R and ggplot.
 
-```{r}
+```{r ggplot_week_ch6}
 
 q <- dbSendQuery(con, "
 SELECT TO_CHAR(invoicedate, 'WW') AS WEEK, SUM(quantity) AS UNITS_SOLD FROM trx
@@ -224,7 +224,7 @@ Ggplot needs to know that this data is already aggregated, and we specify this b
 
 Hopefully needless to say, R has similar capabilities in expressing dates as weeks and aggregating. As an example, lets try to make the same chart using R.
 
-```{r}
+```{r ggplot_date_agg}
 q <- dbSendQuery(con, "
 SELECT invoicedate, quantity FROM trx
 ")
@@ -253,7 +253,7 @@ Since we are using R which usually covers these use cases, there are few argumen
 
 If you prefer avoid SQL when possible, you should consider using a library called `dbplyr`. This is an interface that lets you write code that should be familiar to any `dplyr` user, that is then run in the database as SQL. The authors have done a great job at optimizing the code, so that the resulting database queries are every bit as performant as you could hope for. But, like many libraries, it has its limitations as well. To illustrate examples of when this works and when it doesn't, we will try to get a summary of sales by country like we did in chapter \@ref(simple-aggregates), and generate summaries by weekday like we did above.
 
-```{r}
+```{r dbplyr_collect}
 library(dbplyr)
 
 #define a r-object that references the database table
@@ -263,6 +263,7 @@ trxtbl <- tbl(con, "TRX")
 trxtbl %>% 
   group_by(COUNTRY) %>% 
   summarize(total_sales = sum(QUANTITY*UNITPRICE)) %>% 
+  collect() %>% 
   arrange(desc(total_sales)) %>% 
   top_n(3)
 
@@ -270,7 +271,7 @@ trxtbl %>%
 
 But if we try to do the same with weekdays, we get a strange error-message.
 
-```{r dateerror, eval=FALSE}
+```{r dateerror, eval=FALSE, error=TRUE}
 
 trxtbl %>% 
   mutate(week = strftime(INVOICEDATE, format="%V"))

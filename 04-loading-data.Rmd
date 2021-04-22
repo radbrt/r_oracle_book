@@ -26,7 +26,7 @@ tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect
 
 
 ```{r readcsv}
-trx <- read.csv("/home/oracle/Desktop/data2.csv", stringsAsFactors = F)
+trx <- read.csv("data/online_transactions.csv", stringsAsFactors = F)
 trx$InvoiceDate <- strptime(x = trx$InvoiceDate, format = "%m/%d/%Y %H:%M")
 names(trx) <- lapply(names(trx), toupper)
 ```
@@ -43,7 +43,7 @@ Unfortunately, the date format is lost from R to Oracle so we need to do a littl
 
 This statement could have been executed from R, but using the SQL Workbench is probably just as nice.
 
-```{sql connection=con, eval=FALSE}
+```sql
 CREATE TABLE trx AS (
 SELECT INVOICENO, 
   STOCKCODE, 
@@ -54,5 +54,5 @@ SELECT INVOICENO,
   CUSTOMERID,
   COUNTRY
 FROM moviedemo.trx0
-);
+)
 ```

@@ -1,6 +1,22 @@
 
 # Basic SQL
+```{r dbdrv_ch5, include=FALSE, eval=TRUE}
 
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+```
 The simplest queries are only a line or two of code, containing two or three keywords. All queries that read data from a table follows this structure:
 
 - First, the keyword `SELECT`, followed by the variables (consistently referred to as **columns** in database jargon) you wish to select.
@@ -23,6 +39,7 @@ No matter how advanced, most data analysis starts with a simple look at the data
 ```{sql connection=con}
 SELECT * FROM trx
 FETCH FIRST 10 ROWS ONLY
+
 ```
 
 `InvoiceNo`, `StockCode` and `CustomerID` seems to be random ID numbers, which will be useful later on. First, let's note that the description is a freetext column, there is no column for total salesprice, but this is easily calculated from `UnitPrice` and `Quantity`.

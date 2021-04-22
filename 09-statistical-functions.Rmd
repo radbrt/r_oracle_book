@@ -1,6 +1,22 @@
 
 # Statistical functions
+```{r dbdrv_ch9, include=FALSE, eval=TRUE}
 
+library(ROracle)
+drv <- dbDriver("Oracle")
+host <- "localhost"
+port <- 1521
+sid <- "orcl"
+
+connect.string <- paste(
+  "(DESCRIPTION=",
+  "(ADDRESS=(PROTOCOL=tcp)(HOST=", host, ")(PORT=", port, "))",
+  "(CONNECT_DATA=(SID=", sid, ")))", sep = "")
+
+con <- dbConnect(drv, username="moviedemo", password="welcome1", dbname=connect.string)
+tickercon <- dbConnect(drv, username="pmuser", password="pmuser", dbname=connect.string)
+
+```
 Usually, statistics is best suited to do in R. But if your data is large enough and your needs aren't too advanced, Oracle packs an impressive array of statistical functions and can often execute them blazingly fast.
 
 ## Covariance: Revisitng quantity vs unitprice

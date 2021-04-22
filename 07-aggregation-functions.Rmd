@@ -25,7 +25,7 @@ Since we have already dived deep into aggregations in \@ref(intermediate-sql), t
 
 Medians are easy to compute, simply switch `AVG` with `MEDIAN` and you are set. Quartiles, deciles and percentiles give you a lot of options, and so they are not implemented in the same way - hence, the syntax is a bit trickier. Let's look at an example, again from the transactions table, where we compare the median, quartiles, P10 and P90 of the unitprice between countries.
 
-```{sql, connection=con}
+```{sql connection=con, pctl_sql}
 SELECT country, 
 PERCENTILE_DISC(0.1) WITHIN GROUP(ORDER BY unitprice) AS p10_price,
 PERCENTILE_DISC(0.25) WITHIN GROUP(ORDER BY unitprice) AS q1_price,
